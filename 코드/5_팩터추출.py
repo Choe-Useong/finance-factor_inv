@@ -783,6 +783,16 @@ def get_revenue(sub: pd.DataFrame) -> float:
     if len(op_exp_label) > 0 and len(op_inc_label) > 0:
         return float(op_exp_label.iloc[0] + op_inc_label.iloc[0])
         
+    # 4c) (fallback) Revenue 항목은 존재하지만 값이 NaN인 경우 0으로 처리 (박셀바이오 케이스)
+    rev_exist = sub.loc[sub["항목코드_통일"] == "Revenue"]
+    if len(rev_exist) > 0 and rev_exist["당기"].isna().all():
+        return 0.0
+
+    # GrossProfit 항목은 존재하지만 값이 NaN인 경우 0으로 처리 (큐리언트 케이스)
+    gp_exist = sub.loc[sub["항목코드_통일"] == "GrossProfit"]
+    if len(gp_exist) > 0 and gp_exist["당기"].isna().all():
+        return 0.0
+
     # 5) 모든 경우 실패 시 NA
     return pd.NA
 

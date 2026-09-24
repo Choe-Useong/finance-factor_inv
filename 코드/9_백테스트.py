@@ -115,8 +115,9 @@ def zscore_safe(s: pd.Series) -> pd.Series:
     std = s.std(ddof=0)            # 전체 표준편차(ddof=0: 모집단 표준편차). 0이면 분모 1로 대체해 발산 방지
     return (s - s.mean()) / (std if (std and std > 0) else 1.0)
 
-def rank_pct(s: pd.Series, ascending=False) -> pd.Series:
-    return s.rank(ascending=ascending, pct=True)  # 백분위(rank/len). ascending=False면 값이 클수록 높은 순위(1에 근접)
+def rank_pct(s: pd.Series) -> pd.Series:
+    # pandas pct rank는 ascending=True일 때 큰 값이 1에 가까워진다.
+    return s.rank(ascending=True, pct=True)
 
 def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
     s = df[col]
@@ -236,13 +237,13 @@ def select_universe(factor_df, year, params):
             feat = zscore_safe(x)                     # 전역 z-score
             sel_name = f + "_z"
         elif std_method == "rank":
-            feat = rank_pct(x, ascending=False)       # 전역 백분위(값 클수록 1에 가까움)
+            feat = rank_pct(x)       # 전역 백분위(값 클수록 1에 가까움)
             sel_name = f + "_r"
         elif std_method == "ind_z":
             feat = x.groupby(grp_ids).transform(zscore_safe)              # 업종 내 z-score
             sel_name = f + "_indz"
         elif std_method == "ind_rank":
-            feat = x.groupby(grp_ids).transform(lambda s: rank_pct(s, ascending=False))  # 업종 내 백분위
+            feat = x.groupby(grp_ids).transform(lambda s: rank_pct(s))  # 업종 내 백분위
             sel_name = f + "_indr"
         else:
             raise ValueError("Unknown STD_METHOD")
@@ -275,7 +276,7 @@ def select_universe(factor_df, year, params):
             if std_method == "none":
                 # 표준화가 없으면 여기서 정규화(rank 또는 zscore)를 적용
                 if score_norm == "rank":
-                    z = s.rank(ascending=False, pct=True)
+                    z = rank_pct(s)
                 else:
                     z = zscore_safe(s)
             else:
@@ -303,6 +304,10 @@ for d in rebal_dates:                                   # 각 리밸 날짜별�
     selected = [c for c in selected if c in univ and not pd.isna(proc.loc[d, c])]
     if len(selected) == 0:
         continue
+
+    # 리밸런싱 시점에는 기존 보유 종목을 먼저 0으로 초기화한다.
+    # 그렇지 않으면 비선정 종목의 과거 비중이 ffill()로 다음 기간까지 남는다.
+    weights.loc[d, :] = 0.0
 
     if params["METHOD"] == "intersection":
         # 교집합 방식에서는 현재 템플릿상 equal-weight만 허용

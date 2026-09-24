@@ -370,15 +370,6 @@ def get_gross_profit(sub: pd.DataFrame) -> float:
       ④ 항목명 '매출액' - '매출원가'
           - IFRS 코드가 누락된 경우 한글 항목명을 이용해 간접 계산.
 
-      ⑤ 보조: '매출액 - 재료비'
-          - 원가 세부 항목이 분리되어 있는 경우 이를 합산하여 매출총이익 근사값 계산.
-          - IFRS 코드 'RawMaterialsAndConsumablesUsed'  또는
-            한글 항목명 '인건비'를 기반으로 계산.
-
-      ⑥ 최후 fallback: '영업수익 - 영업비용'
-          - 매출액/원가 항목이 없고, 영업수익·영업비용만 존재할 경우 사용.
-          - 매출총이익 근사치로 간주.
-
       반환값:
         - float 형 매출총이익 (Gross Profit)
         - 찾을 수 없는 경우 pd.NA 반환
@@ -412,31 +403,6 @@ def get_gross_profit(sub: pd.DataFrame) -> float:
     cogs_label = sub.loc[sub["항목명_clean"].str.contains("매출원가", na=False), "당기"].dropna()
     if len(rev_label) > 0 and len(cogs_label) > 0:
         return float(rev_label.iloc[0] - cogs_label.iloc[0])
-
-    # (5) 매출액 - (재료비 + 인건비)
-    # 5-1) IFRS 태그 기준
-    raw_mat = sub.loc[sub["항목코드_통일"] == "RawMaterialsAndConsumablesUsed", "당기"].dropna()
-    labor   = sub.loc[sub["항목코드_통일"] == "EmployeeBenefitsExpense", "당기"].dropna()
-    if len(rev) > 0 and (len(raw_mat) > 0 or len(labor) > 0):
-        total_cost = 0
-        if len(raw_mat) > 0:
-            total_cost += raw_mat.iloc[0]
-        if len(labor) > 0:
-            total_cost += labor.iloc[0]
-        return float(rev.iloc[0] - total_cost)
-
-    # 5-2) 항목명 클린 기반
-    if len(rev_label) > 0:
-        mat_cost = sub.loc[sub["항목명_clean"].str.contains("재료비", na=False), "당기"].dropna()
-        if len(mat_cost) > 0:
-            total_cost = mat_cost.iloc[0]
-            return float(rev_label.iloc[0] - total_cost)
-
-    # (6) 최후 fallback: '영업수익 - 영업비용'
-    oper_rev = sub.loc[sub["항목명_clean"].str.contains("영업수익", na=False), "당기"].dropna()
-    oper_exp = sub.loc[sub["항목명_clean"].str.contains("영업비용", na=False), "당기"].dropna()
-    if len(oper_rev) > 0 and len(oper_exp) > 0:
-        return float(oper_rev.iloc[0] - oper_exp.iloc[0])
 
     return pd.NA
 
@@ -491,13 +457,12 @@ print(na_list.head(20))
 
 
 owner_ni_labels = [
-            "지배주주순이익","지배주주순이익(손실)","지배주주순이익(순손실)","지배주주지분"
+            "지배주주순이익","지배주주순이익(손실)","지배주주순이익(순손실)","지배주주지분",
             "지배기업소유주순이익","지배기업소유주순이익(손실)","지배기업소유주순이익(순손실)",
             "지배기업의소유주에게귀속되는당기순이익","지배기업의소유주에게귀속되는당기순이익(손실)","지배기업의소유주에게귀속되는당기순이익(순손실)",
             "지배기업소유주에게귀속되는순이익","지배기업소유주에게귀속되는순이익(손실)","지배기업소유주에게귀속되는순이익(순손실)",
             "지배주주에귀속되는당기순이익","지배주주에귀속되는당기순이익(손실)","지배주주에귀속되는당기순이익(순손실)",
-            "지배기업주주지분에귀속되는당기순이익","지배기업주주지분에귀속되는당기순이익(손실)","지배기업주주지분에귀속되는당기순이익(순손실)",
-            '지분법적용대상인관계기업의당기순손익에대한지분'
+            "지배기업주주지분에귀속되는당기순이익","지배기업주주지분에귀속되는당기순이익(손실)","지배기업주주지분에귀속되는당기순이익(순손실)"
         ]
 
 
